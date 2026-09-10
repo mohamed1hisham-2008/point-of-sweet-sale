@@ -1,34 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { fetchSales, type Sale } from "@/lib/api";
+import { fetchSales } from "@/lib/api";
+import { fmtNum, paymentLabel, useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/sales")({
   head: () => ({
     meta: [
-      { title: "المبيعات — Sweet Spot" },
+      { title: "Sales — Sweet Spot" },
       {
         name: "description",
-        content: "سجل فواتير مبيعات محل Sweet Spot وإجماليات اليوم.",
+        content: "Sweet Spot sales receipts log and today's totals.",
       },
-      { property: "og:title", content: "المبيعات — Sweet Spot" },
+      { property: "og:title", content: "Sales — Sweet Spot" },
       {
         property: "og:description",
-        content: "سجل فواتير مبيعات محل Sweet Spot وإجماليات اليوم.",
+        content: "Sweet Spot sales receipts log and today's totals.",
       },
     ],
   }),
   component: SalesPage,
 });
-
-const fmt = (n: number) =>
-  n.toLocaleString("ar-EG", { maximumFractionDigits: 2 });
-
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleString("ar-EG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 
 function isToday(iso: string) {
   const d = new Date(iso);
@@ -41,9 +33,16 @@ function isToday(iso: string) {
 }
 
 function SalesPage() {
+  const { t, lang } = useLang();
   const [openId, setOpenId] = useState<string | null>(null);
   const salesQuery = useQuery({ queryKey: ["sales"], queryFn: fetchSales });
   const sales = salesQuery.data ?? [];
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
 
   const stats = useMemo(() => {
     const today = sales.filter((s) => isToday(s.created_at));
@@ -57,22 +56,28 @@ function SalesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-5">
-      <h1 className="mb-4 text-xl font-black">سجل المبيعات</h1>
+      <h1 className="mb-4 text-xl font-black">{t("salesLog")}</h1>
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="مبيعات النهاردة" value={`${fmt(stats.todayTotal)} ج.م`} />
-        <StatCard label="فواتير النهاردة" value={String(stats.todayCount)} />
-        <StatCard label="إجمالي المبيعات" value={`${fmt(stats.allTotal)} ج.م`} />
-        <StatCard label="عدد الفواتير" value={String(stats.allCount)} />
+        <StatCard
+          label={t("todaySales")}
+          value={`${fmtNum(stats.todayTotal, lang)} ${t("egp")}`}
+        />
+        <StatCard label={t("todayReceipts")} value={String(stats.todayCount)} />
+        <StatCard
+          label={t("allSales")}
+          value={`${fmtNum(stats.allTotal, lang)} ${t("egp")}`}
+        />
+        <StatCard label={t("receiptsCount")} value={String(stats.allCount)} />
       </div>
 
       {salesQuery.isLoading ? (
         <p className="py-16 text-center text-muted-foreground">
-          جاري تحميل المبيعات...
+          {t("loadingSales")}
         </p>
       ) : sales.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border py-16 text-center text-muted-foreground">
-          لسه مفيش مبيعات — جرب تعمل فاتورة من شاشة الكاشير
+          {t("noSales")}
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -85,7 +90,7 @@ function SalesPage() {
               >
                 <button
                   onClick={() => setOpenId(open ? null : s.id)}
-                  className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-right hover:bg-secondary/40"
+                  className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-start hover:bg-secondary/40"
                 >
                   <span className="font-mono text-xs font-bold text-muted-foreground">
                     #{s.id.slice(0, 8)}
@@ -94,25 +99,36 @@ function SalesPage() {
                     {fmtDate(s.created_at)}
                   </span>
                   <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-secondary-foreground">
-                    {s.payment_method}
+                    {paymentLabel(s.payment_method, lang)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {s.sale_items?.reduce((a, i) => a + i.quantity, 0) ?? 0} صنف
+                    {s.sale_items?.reduce((a, i) => a + i.quantity, 0) ?? 0}{" "}
+                    {t("items")}
                   </span>
-                  <span className="mr-auto text-base font-extrabold text-primary">
-                    {fmt(Number(s.total))} ج.م
+                  <span className="ms-auto text-base font-extrabold text-primary">
+                    {fmtNum(Number(s.total), lang)} {t("egp")}
                   </span>
-                  <span className="text-muted-foreground">{open ? "▲" : "▼"}</span>
+                  <span className="text-muted-foreground">
+                    {open ? "▲" : "▼"}
+                  </span>
                 </button>
                 {open && (
                   <div className="border-t border-border bg-secondary/30 px-5 py-3">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-right text-xs text-muted-foreground">
-                          <th className="py-1 font-bold">المنتج</th>
-                          <th className="py-1 font-bold">الكمية</th>
-                          <th className="py-1 font-bold">السعر</th>
-                          <th className="py-1 font-bold">الإجمالي</th>
+                        <tr className="text-start text-xs text-muted-foreground">
+                          <th className="py-1 text-start font-bold">
+                            {t("product")}
+                          </th>
+                          <th className="py-1 text-start font-bold">
+                            {t("quantity")}
+                          </th>
+                          <th className="py-1 text-start font-bold">
+                            {t("price")}
+                          </th>
+                          <th className="py-1 text-start font-bold">
+                            {t("lineTotal")}
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -122,9 +138,11 @@ function SalesPage() {
                               {i.product_name}
                             </td>
                             <td className="py-2">{i.quantity}</td>
-                            <td className="py-2">{fmt(Number(i.price))}</td>
+                            <td className="py-2">
+                              {fmtNum(Number(i.price), lang)}
+                            </td>
                             <td className="py-2 font-bold">
-                              {fmt(Number(i.price) * i.quantity)}
+                              {fmtNum(Number(i.price) * i.quantity, lang)}
                             </td>
                           </tr>
                         ))}

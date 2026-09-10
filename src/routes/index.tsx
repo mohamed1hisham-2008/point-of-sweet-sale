@@ -7,33 +7,34 @@ import {
   type CartLine,
   type Product,
 } from "@/lib/api";
+import { fmtNum, useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "الكاشير — Sweet Spot" },
+      { title: "Cashier — Sweet Spot" },
       {
         name: "description",
-        content: "شاشة الكاشير: اختار المنتجات، راجع الفاتورة، وسجّل البيع.",
+        content:
+          "Cashier screen: pick products, review the receipt, and record the sale.",
       },
-      { property: "og:title", content: "الكاشير — Sweet Spot" },
+      { property: "og:title", content: "Cashier — Sweet Spot" },
       {
         property: "og:description",
-        content: "شاشة الكاشير: اختار المنتجات، راجع الفاتورة، وسجّل البيع.",
+        content:
+          "Cashier screen: pick products, review the receipt, and record the sale.",
       },
     ],
   }),
   component: CashierPage,
 });
 
-const fmt = (n: number) =>
-  n.toLocaleString("ar-EG", { maximumFractionDigits: 2 });
-
 function CashierPage() {
+  const { t, lang } = useLang();
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string>("الكل");
+  const [category, setCategory] = useState<string>("ALL");
   const [payment, setPayment] = useState("نقدي");
   const [receipt, setReceipt] = useState<string | null>(null);
 
@@ -55,7 +56,7 @@ function CashierPage() {
   const products = productsQuery.data ?? [];
 
   const categories = useMemo(
-    () => ["الكل", ...Array.from(new Set(products.map((p) => p.category)))],
+    () => ["ALL", ...Array.from(new Set(products.map((p) => p.category)))],
     [products]
   );
 
@@ -63,12 +64,20 @@ function CashierPage() {
     const q = search.trim();
     return products.filter(
       (p) =>
-        (category === "الكل" || p.category === category) &&
-        (!q || p.name.includes(q) || (p.barcode ?? "").includes(q))
+        (category === "ALL" || p.category === category) &&
+        (!q ||
+          p.name.includes(q) ||
+          p.name.toLowerCase().includes(q.toLowerCase()) ||
+          (p.barcode ?? "").includes(q))
     );
   }, [products, search, category]);
 
   const total = cart.reduce((s, l) => s + l.product.price * l.quantity, 0);
+  const paymentMethods = [
+    { value: "نقدي", label: t("cash") },
+    { value: "فيزا", label: t("visa") },
+    { value: "محفظة", label: t("wallet") },
+  ];
 
   function addToCart(product: Product) {
     if (product.stock <= 0) return;
@@ -77,9 +86,7 @@ function CashierPage() {
       if (existing) {
         if (existing.quantity >= product.stock) return prev;
         return prev.map((l) =>
-          l.product.id === product.id
-            ? { ...l, quantity: l.quantity + 1 }
-            : l
+          l.product.id === product.id ? { ...l, quantity: l.quantity + 1 } : l
         );
       }
       return [...prev, { product, quantity: 1 }];
@@ -110,7 +117,7 @@ function CashierPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="ابحث بالاسم أو الباركود..."
+            placeholder={t("searchPlaceholder")}
             className="w-full rounded-xl border border-input bg-card px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring sm:max-w-xs"
           />
           <div className="flex flex-wrap gap-1.5">
@@ -124,7 +131,7 @@ function CashierPage() {
                     : "bg-secondary text-secondary-foreground hover:bg-accent"
                 }`}
               >
-                {c}
+                {c === "ALL" ? t("all") : c}
               </button>
             ))}
           </div>
@@ -132,11 +139,11 @@ function CashierPage() {
 
         {productsQuery.isLoading ? (
           <p className="py-16 text-center text-muted-foreground">
-            جاري تحميل المنتجات...
+            {t("loadingProducts")}
           </p>
         ) : productsQuery.isError ? (
           <p className="py-16 text-center text-destructive">
-            حصل خطأ في تحميل المنتجات
+            {t("productsError")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -148,7 +155,7 @@ function CashierPage() {
                   key={p.id}
                   onClick={() => addToCart(p)}
                   disabled={out}
-                  className="group flex flex-col rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group flex flex-col rounded-2xl border border-border bg-card p-4 text-start shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="text-sm font-bold text-card-foreground">
                     {p.name}
@@ -157,7 +164,7 @@ function CashierPage() {
                     {p.category}
                   </span>
                   <span className="mt-3 text-lg font-extrabold text-primary">
-                    {fmt(p.price)} ج.م
+                    {fmtNum(p.price, lang)} {t("egp")}
                   </span>
                   <span
                     className={`mt-1 text-xs font-semibold ${
@@ -168,14 +175,14 @@ function CashierPage() {
                           : "text-muted-foreground"
                     }`}
                   >
-                    {out ? "خلص من المخزون" : `المتاح: ${p.stock}`}
+                    {out ? t("outOfStock") : `${t("available")}: ${p.stock}`}
                   </span>
                 </button>
               );
             })}
             {filtered.length === 0 && (
               <p className="col-span-full py-16 text-center text-muted-foreground">
-                مفيش منتجات مطابقة للبحث
+                {t("noMatches")}
               </p>
             )}
           </div>
@@ -186,14 +193,14 @@ function CashierPage() {
       <aside className="flex h-fit flex-col rounded-2xl border border-border bg-card shadow-sm lg:sticky lg:top-20">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-lg font-extrabold text-card-foreground">
-            الفاتورة الحالية
+            {t("currentReceipt")}
           </h2>
         </div>
 
         <div className="max-h-80 flex-1 overflow-y-auto px-3 py-2">
           {cart.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              اضغط على أي منتج عشان تضيفه للفاتورة
+              {t("emptyCart")}
             </p>
           ) : (
             cart.map((l) => (
@@ -204,29 +211,29 @@ function CashierPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold">{l.product.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {fmt(l.product.price)} × {l.quantity} ={" "}
-                    {fmt(l.product.price * l.quantity)} ج.م
+                    {fmtNum(l.product.price, lang)} × {l.quantity} ={" "}
+                    {fmtNum(l.product.price * l.quantity, lang)} {t("egp")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => changeQty(l.product.id, 1)}
                     className="h-7 w-7 rounded-lg bg-secondary text-sm font-bold hover:bg-accent"
-                    aria-label="زيادة الكمية"
+                    aria-label={t("increaseQty")}
                   >
                     +
                   </button>
                   <button
                     onClick={() => changeQty(l.product.id, -1)}
                     className="h-7 w-7 rounded-lg bg-secondary text-sm font-bold hover:bg-accent"
-                    aria-label="تقليل الكمية"
+                    aria-label={t("decreaseQty")}
                   >
                     −
                   </button>
                   <button
                     onClick={() => removeLine(l.product.id)}
                     className="h-7 w-7 rounded-lg text-destructive hover:bg-destructive/10"
-                    aria-label="حذف"
+                    aria-label={t("remove")}
                   >
                     ✕
                   </button>
@@ -239,24 +246,24 @@ function CashierPage() {
         <div className="border-t border-border px-5 py-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold text-muted-foreground">
-              الإجمالي
+              {t("total")}
             </span>
             <span className="text-2xl font-black text-primary">
-              {fmt(total)} ج.م
+              {fmtNum(total, lang)} {t("egp")}
             </span>
           </div>
           <div className="mb-3 flex gap-2">
-            {["نقدي", "فيزا", "محفظة"].map((m) => (
+            {paymentMethods.map((m) => (
               <button
-                key={m}
-                onClick={() => setPayment(m)}
+                key={m.value}
+                onClick={() => setPayment(m.value)}
                 className={`flex-1 rounded-xl px-2 py-2 text-xs font-bold transition-colors ${
-                  payment === m
+                  payment === m.value
                     ? "bg-primary text-primary-foreground"
                     : "bg-secondary text-secondary-foreground hover:bg-accent"
                 }`}
               >
-                {m}
+                {m.label}
               </button>
             ))}
           </div>
@@ -265,16 +272,16 @@ function CashierPage() {
             disabled={cart.length === 0 || checkoutMutation.isPending}
             className="w-full rounded-xl bg-primary py-3 text-base font-extrabold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {checkoutMutation.isPending ? "جاري التسجيل..." : "إتمام البيع ✅"}
+            {checkoutMutation.isPending ? t("saving") : t("completeSale")}
           </button>
           {checkoutMutation.isError && (
             <p className="mt-2 text-center text-xs font-semibold text-destructive">
-              حصل خطأ أثناء تسجيل البيع، حاول تاني
+              {t("saleError")}
             </p>
           )}
           {receipt && (
             <p className="mt-2 text-center text-xs font-semibold text-success">
-              تم تسجيل البيع بنجاح — رقم الفاتورة: {receipt.slice(0, 8)}
+              {t("saleSuccess")}: {receipt.slice(0, 8)}
             </p>
           )}
         </div>
