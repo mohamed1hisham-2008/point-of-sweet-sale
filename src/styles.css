@@ -137,3 +137,20 @@
     font-family: var(--font-sans);
   }
 }
+
+/* Print only the receipt */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #receipt-print,
+  #receipt-print * {
+    visibility: visible;
+  }
+  #receipt-print {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    width: 80mm;
+  }
+}

@@ -108,3 +108,32 @@ export async function fetchSales(): Promise<Sale[]> {
   if (error) throw error;
   return data as Sale[];
 }
+
+export interface StoreSettings {
+  id: number;
+  store_name: string;
+  phone: string;
+  address: string;
+  tax_number: string;
+  footer_message: string;
+}
+
+export async function fetchSettings(): Promise<StoreSettings> {
+  const { data, error } = await supabase
+    .from("store_settings")
+    .select("*")
+    .eq("id", 1)
+    .single();
+  if (error) throw error;
+  return data as StoreSettings;
+}
+
+export async function saveSettings(
+  s: Omit<StoreSettings, "id">
+): Promise<void> {
+  const { error } = await supabase
+    .from("store_settings")
+    .update({ ...s, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) throw error;
+}
