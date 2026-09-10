@@ -113,6 +113,36 @@ export type Database = {
         }
         Relationships: []
       }
+      store_settings: {
+        Row: {
+          address: string
+          footer_message: string
+          id: number
+          phone: string
+          store_name: string
+          tax_number: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          footer_message?: string
+          id?: number
+          phone?: string
+          store_name?: string
+          tax_number?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          footer_message?: string
+          id?: number
+          phone?: string
+          store_name?: string
+          tax_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
